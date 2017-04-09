@@ -116,6 +116,7 @@ class RealmTransformer extends Transform {
             inputClassNames.contains(it.name)
         }
         logger.debug "Model Classes: ${allModelClasses*.name}"
+        logger.debug "InputClassNames: ${inputClassNames}"
 
         // Populate a list of the fields that need to be managed with bytecode manipulation
         def allManagedFields = []

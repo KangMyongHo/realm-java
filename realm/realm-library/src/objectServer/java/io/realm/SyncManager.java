@@ -22,10 +22,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.realm.internal.Keep;
+import io.realm.internal.SyncObjectServerFacade;
 import io.realm.internal.network.AuthenticationServer;
+import io.realm.internal.network.NetworkStateReceiver;
 import io.realm.internal.network.OkHttpAuthenticationServer;
 import io.realm.log.RealmLog;
 
@@ -98,12 +101,36 @@ public class SyncManager {
     private static volatile AuthenticationServer authServer = new OkHttpAuthenticationServer();
     private static volatile UserStore userStore;
 
+    private static NetworkStateReceiver.ConnectionListener networkListener = new NetworkStateReceiver.ConnectionListener() {
+        @Override
+        public void onChange(boolean connectionAvailable) {
+            if (connectionAvailable) {
+                if (NetworkStateReceiver.isOnline(SyncObjectServerFacade.getApplicationContext())) {
+                    RealmLog.info(" >>>>>>>>>>>>>>>>>>>>>>>>>>>>> CONNECTION BACK :)");
+                    // notify all sessions
+                    notifyNetworkIsBack();
+                } else {
+                    RealmLog.info(" >>>>>>>>>>>>>>>>>>>>>>>>>>>>> FALSE POSITIVE :(");
+                }
+
+            } else {//TODO Remove
+                RealmLog.info(" >>>>>>>>>>>>>>>>>>>>>>>>>>>>> NO CONNECTION :(");
+            }
+        }
+    };
+
     static volatile SyncSession.ErrorHandler defaultSessionErrorHandler = SESSION_NO_OP_ERROR_HANDLER;
 
     // Initialize the SyncManager
     static void init(String appId, UserStore userStore) {
         SyncManager.APP_ID = appId;
         SyncManager.userStore = userStore;
+
+        // register a listener to observer network status.
+        // this will be used to force a session reconnect, when the network
+        // is back.
+
+//        NetworkStateReceiver.addListener(networkListener);
     }
 
     /**
@@ -181,6 +208,11 @@ public class SyncManager {
         if (session == null) {
             session = new SyncSession(syncConfiguration);
             sessions.put(syncConfiguration.getPath(), session);
+            if (sessions.size() == 1) {
+                // first session add network listener
+                System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>> first session add network listener");
+                NetworkStateReceiver.addListener(networkListener);
+            }
         }
 
         return session;
@@ -198,6 +230,11 @@ public class SyncManager {
         SyncSession syncSession = sessions.remove(syncConfiguration.getPath());
         if (syncSession != null) {
             syncSession.close();
+        }
+        if (sessions.size() == 0) {
+            // last session removed, remove network listener
+            System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>> last session removed, remove network listener");
+            NetworkStateReceiver.removeListener(networkListener);
         }
     }
 
@@ -266,6 +303,14 @@ public class SyncManager {
         }
     }
 
+    private static synchronized void notifyNetworkIsBack() {
+        try {
+            nativeNotifyNetworkIsBack();
+        } catch (Exception exception) {
+            RealmLog.error(exception);
+        }
+    }
+
     /**
      * This is called from the Object Store (through JNI) to request an {@code access_token} for
      * the session specified by sessionPath.
@@ -321,4 +366,5 @@ public class SyncManager {
     protected static native void nativeInitializeSyncManager(String syncBaseDir);
     private static native void nativeReset();
     private static native void nativeSimulateSyncError(String realmPath, int errorCode, String errorMessage, boolean isFatal);
+    private static native void nativeNotifyNetworkIsBack();
 }

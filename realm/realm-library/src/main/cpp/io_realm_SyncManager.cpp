@@ -100,3 +100,12 @@ JNIEXPORT void JNICALL Java_io_realm_SyncManager_nativeSimulateSyncError(JNIEnv*
     }
     CATCH_STD()
 }
+
+JNIEXPORT void JNICALL Java_io_realm_SyncManager_nativeNotifyNetworkIsBack(JNIEnv* env, jclass)
+{
+    TR_ENTER()
+    try {
+        SyncManager::shared().reconnect();
+    }
+    CATCH_STD()
+}
