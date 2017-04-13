@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 Realm Inc.
+ * Copyright 2017 Realm Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,15 @@
  * limitations under the License.
  */
 
-package io.realm.internal;
+#ifndef REALM_JNI_UTIL_HACK_HPP
+#define REALM_JNI_UTIL_HACK_HPP
 
-class TestUtil {
+namespace realm {
+namespace jni_util {
 
-    public static native long getMaxExceptionNumber();
+// Workaround bugs on some devices.
+void hack_init();
 
-    public static native String getExpectedMessage(long exceptionKind);
-
-    public static native void testThrowExceptions(long exceptionKind);
 }
+}
+#endif // REALM_JNI_UTIL_HACK_HPP

@@ -18,8 +18,6 @@ package io.realm;
 
 import android.support.test.runner.AndroidJUnit4;
 
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -27,6 +25,7 @@ import org.junit.runner.RunWith;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import io.realm.entities.AllTypes;
@@ -289,6 +288,53 @@ public class ObjectChangeSetTests {
         realm.commitTransaction();
     }
 
+    // Relevant to https://github.com/realm/realm-java/issues/4437
+    // When the object listener triggered at the 2nd time, the local ref m_field_names_array has not been reset and it
+    // contains an invalid local ref which has been released before.
+    @Test
+    @RunTestInLooperThread(before = PopulateOneAllTypes.class)
+    public void changeDifferentFieldOneAfterAnother() {
+        Realm realm = looperThread.realm;
+        AllTypes allTypes = realm.where(AllTypes.class).findFirst();
+        final AtomicBoolean stringChanged = new AtomicBoolean(false);
+        final AtomicBoolean longChanged = new AtomicBoolean(false);
+        final AtomicBoolean floatChanged = new AtomicBoolean(false);
+
+        allTypes.addChangeListener(new RealmObjectChangeListener<RealmModel>() {
+            @Override
+            public void onChange(RealmModel object, ObjectChangeSet changeSet) {
+                assertEquals(1, changeSet.getChangedFields().length);
+                if (changeSet.isFieldChanged(AllTypes.FIELD_STRING)) {
+                    assertFalse(stringChanged.get());
+                    stringChanged.set(true);
+                } else if (changeSet.isFieldChanged(AllTypes.FIELD_LONG)) {
+                    assertFalse(longChanged.get());
+                    longChanged.set(true);
+                } else if (changeSet.isFieldChanged(AllTypes.FIELD_FLOAT)) {
+                    assertTrue(stringChanged.get());
+                    assertTrue(longChanged.get());
+                    assertFalse(floatChanged.get());
+                    floatChanged.set(true);
+                    looperThread.testComplete();
+                } else {
+                    fail();
+                }
+            }
+        });
+
+        realm.beginTransaction();
+        allTypes.setColumnString("42");
+        realm.commitTransaction();
+
+        realm.beginTransaction();
+        allTypes.setColumnLong(42);
+        realm.commitTransaction();
+
+        realm.beginTransaction();
+        allTypes.setColumnFloat(42.0f);
+        realm.commitTransaction();
+    }
+
     @Test
     @RunTestInLooperThread(before = PopulateOneAllTypes.class)
     public void findFirstAsync_changeSetIsNullWhenQueryReturns() {
@@ -335,6 +381,40 @@ public class ObjectChangeSetTests {
         });
         realm.beginTransaction();
         allTypes.deleteFromRealm();
+        realm.commitTransaction();
+    }
+
+    // When there are more than 512 fields change, the JNI local ref table size limitation may be reached.
+    @Test
+    @RunTestInLooperThread
+    public void moreFieldsChangedThanLocalRefTableSize() {
+        final String CLASS_NAME = "ManyFields";
+        final int FIELD_COUNT = 1024;
+        RealmConfiguration config = looperThread.createConfiguration("many_fields");
+        final DynamicRealm realm = DynamicRealm.getInstance(config);
+
+        realm.beginTransaction();
+        RealmSchema schema = realm.getSchema();
+        RealmObjectSchema objectSchema = schema.create(CLASS_NAME);
+        for (int i = 0; i < FIELD_COUNT; i++) {
+            objectSchema.addField("field" + i, int.class);
+        }
+        DynamicRealmObject obj = realm.createObject(CLASS_NAME);
+        realm.commitTransaction();
+
+        obj.addChangeListener(new RealmObjectChangeListener<DynamicRealmObject>() {
+            @Override
+            public void onChange(DynamicRealmObject object, ObjectChangeSet changeSet) {
+                assertEquals(FIELD_COUNT, changeSet.getChangedFields().length);
+                realm.close();
+                looperThread.testComplete();
+            }
+        });
+
+        realm.beginTransaction();
+        for (int i = 0; i < FIELD_COUNT; i++) {
+            obj.setInt("field" + i, 42);
+        }
         realm.commitTransaction();
     }
 }
