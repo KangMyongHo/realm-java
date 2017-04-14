@@ -73,7 +73,7 @@ public class NetworkStateReceiver extends BroadcastReceiver {
         }
         ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
         NetworkInfo networkInfo = cm.getActiveNetworkInfo();
-        return ((networkInfo != null && networkInfo.isConnectedOrConnecting()) /*|| Util.isEmulator()*/);
+        return ((networkInfo != null && networkInfo.isConnectedOrConnecting()) || Util.isEmulator());
     }
 
 

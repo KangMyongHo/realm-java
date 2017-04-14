@@ -22,7 +22,6 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.realm.internal.Keep;
@@ -106,15 +105,12 @@ public class SyncManager {
         public void onChange(boolean connectionAvailable) {
             if (connectionAvailable) {
                 if (NetworkStateReceiver.isOnline(SyncObjectServerFacade.getApplicationContext())) {
-                    RealmLog.info(" >>>>>>>>>>>>>>>>>>>>>>>>>>>>> CONNECTION BACK :)");
+                    RealmLog.debug("networkListener connection available");
                     // notify all sessions
                     notifyNetworkIsBack();
-                } else {
-                    RealmLog.info(" >>>>>>>>>>>>>>>>>>>>>>>>>>>>> FALSE POSITIVE :(");
                 }
-
-            } else {//TODO Remove
-                RealmLog.info(" >>>>>>>>>>>>>>>>>>>>>>>>>>>>> NO CONNECTION :(");
+            } else {
+                RealmLog.debug("networkListener connection lost");
             }
         }
     };
@@ -125,12 +121,6 @@ public class SyncManager {
     static void init(String appId, UserStore userStore) {
         SyncManager.APP_ID = appId;
         SyncManager.userStore = userStore;
-
-        // register a listener to observer network status.
-        // this will be used to force a session reconnect, when the network
-        // is back.
-
-//        NetworkStateReceiver.addListener(networkListener);
     }
 
     /**
@@ -209,8 +199,7 @@ public class SyncManager {
             session = new SyncSession(syncConfiguration);
             sessions.put(syncConfiguration.getPath(), session);
             if (sessions.size() == 1) {
-                // first session add network listener
-                System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>> first session add network listener");
+                RealmLog.debug("first session created add network listener");
                 NetworkStateReceiver.addListener(networkListener);
             }
         }
@@ -232,8 +221,7 @@ public class SyncManager {
             syncSession.close();
         }
         if (sessions.size() == 0) {
-            // last session removed, remove network listener
-            System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>> last session removed, remove network listener");
+            RealmLog.debug("last session dropped, remove network listener");
             NetworkStateReceiver.removeListener(networkListener);
         }
     }
