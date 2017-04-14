@@ -2,9 +2,13 @@
 
 ### Deprecated
 
+### Object Server API Changes
+
+* Resume synchronization as soon as the network is back (#4141).
+
 ### Enhancements
 
-* Transient fields are now allowed in model classes, but are implicitly treated as having the `@Ignore' annotation (#4279).
+* Transient fields are now allowed in model classes, but are implicitly treated as having the `@Ignore` annotation (#4279).
 
 ### Bug Fixes
 
