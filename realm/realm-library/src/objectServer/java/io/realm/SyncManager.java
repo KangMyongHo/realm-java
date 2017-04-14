@@ -104,11 +104,9 @@ public class SyncManager {
         @Override
         public void onChange(boolean connectionAvailable) {
             if (connectionAvailable) {
-                if (NetworkStateReceiver.isOnline(SyncObjectServerFacade.getApplicationContext())) {
-                    RealmLog.debug("networkListener connection available");
-                    // notify all sessions
-                    notifyNetworkIsBack();
-                }
+                RealmLog.debug("networkListener connection available");
+                // notify all sessions
+                notifyNetworkIsBack();
             } else {
                 RealmLog.debug("networkListener connection lost");
             }
@@ -275,7 +273,7 @@ public class SyncManager {
 
     private static synchronized void notifyNetworkIsBack() {
         try {
-            nativeNotifyNetworkIsBack();
+            reconnect();
         } catch (Exception exception) {
             RealmLog.error(exception);
         }
@@ -336,5 +334,5 @@ public class SyncManager {
     protected static native void nativeInitializeSyncManager(String syncBaseDir);
     private static native void nativeReset();
     private static native void nativeSimulateSyncError(String realmPath, int errorCode, String errorMessage, boolean isFatal);
-    private static native void nativeNotifyNetworkIsBack();
+    private static native void reconnect();
 }
